@@ -1,4 +1,5 @@
 # 🏥 CarePlus AI Clinic Assistant
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/d394c00d-6d7f-4345-b000-0571814f65d0" />
 
 An intelligent, multi-agent clinic booking system powered by **LangGraph** and **Groq**. 
 
