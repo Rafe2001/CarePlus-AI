@@ -13,10 +13,6 @@ __pycache__/
 *$py.class
 *.so
 
-# Database
-data/*.db
-*.sqlite3
-
 # OS generated files
 .DS_Store
 Thumbs.db

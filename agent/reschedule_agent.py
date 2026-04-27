@@ -71,16 +71,22 @@ def _tool_lookup_bookings(phone: str) -> str:
     if not customer:
         return f"No patient found with phone number {phone}."
     
-    patient_id = customer[0]
+    patient_id = customer["patients_id"] if isinstance(customer, dict) else customer[0]
     bookings = get_bookings_by_patient_id(patient_id)
     if not bookings:
-        return f"No active appointments found for patient {customer[1]}."
+        patient_name = customer["name"] if isinstance(customer, dict) else customer[1]
+        return f"No active appointments found for patient {patient_name}."
         
-    res = f"Found {len(bookings)} active appointments for {customer[1]}:\n"
+    patient_name = customer["name"] if isinstance(customer, dict) else customer[1]
+    res = f"Found {len(bookings)} active appointments for {patient_name}:\n"
     for b in bookings:
-        doctor = get_doctor_by_id(b[2])
-        doc_name = doctor[1] if doctor else "Unknown Doctor"
-        res += f"- Booking ID: {b[0]}, Doctor: {doc_name}, Date: {b[3]}, Time: {b[4]} (DocID: {b[2]})\n"
+        doctor_id = b["doctor_id"] if isinstance(b, dict) else b[2]
+        doctor = get_doctor_by_id(doctor_id)
+        doc_name = doctor["name"] if isinstance(doctor, dict) else doctor[1] if doctor else "Unknown Doctor"
+        booking_id = b["booking_id"] if isinstance(b, dict) else b[0]
+        appointment_date = b["appointment_date"] if isinstance(b, dict) else b[3]
+        appointment_time = b["appointment_time"] if isinstance(b, dict) else b[4]
+        res += f"- Booking ID: {booking_id}, Doctor: {doc_name}, Date: {appointment_date}, Time: {appointment_time} (DocID: {doctor_id})\n"
     return res
 
 def _tool_cancel_appointment(booking_id: str) -> str:
@@ -99,7 +105,8 @@ def _tool_get_available_slots(doctor_id: str, date: str) -> str:
     doctor = get_doctor_by_id(doctor_id_int)
     if not doctor:
         return "Doctor not found."
-    slots = generate_time_slot(doctor[3])
+    office_hours = doctor["office_hours"] if isinstance(doctor, dict) else doctor[3]
+    slots = generate_time_slot(office_hours)
     return f"Available slots for {date}: {', '.join(slots)}"
 
 def _tool_update_appointment(booking_id: str, new_date: str, new_time: str) -> str:

@@ -27,7 +27,6 @@ from tools.doctor_service import (
     get_doctors_info,
     generate_time_slot,
 )
-from data.db import get_customer_by_phone, get_bookings_by_patient_id, get_doctor_by_id
 from tools.booking_service import (
     get_or_create_customer,
     get_available_slots,

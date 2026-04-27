@@ -6,7 +6,7 @@ from tools.doctor_service import generate_time_slot
 def get_or_create_customer(name, phone, email=None):
     customer = get_customer_by_phone(phone)
     if customer:
-        return customer[0] 
+        return customer['patients_id'] if isinstance(customer, dict) else customer[0]
     
     customer_id = f"CUST-{uuid.uuid4().hex[:6].upper()}"
     create_customer(customer_id, name, 0, phone, email)
@@ -14,10 +14,15 @@ def get_or_create_customer(name, phone, email=None):
 
 def get_available_slots(doctor_id, date):
     appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
-    all_slots = generate_time_slot(get_doctor_by_id(doctor_id)[3])  # office_hours is the 4th column
+    doctor = get_doctor_by_id(doctor_id)
+    office_hours = doctor['office_hours'] if isinstance(doctor, dict) else doctor[3]
+    all_slots = generate_time_slot(office_hours)
     booked_items = get_bookings_by_doctor_and_date(doctor_id, date)
     # filter out booked slots
-    booked_slots = [booking[0] for booking in booked_items]  # appointment_time is the first column
+    booked_slots = []
+    for booking in booked_items:
+        appt_time = booking['appointment_time'] if isinstance(booking, dict) else booking[0]
+        booked_slots.append(appt_time)
     available_slots = [slot for slot in all_slots if slot not in booked_slots]  
     return available_slots
 
@@ -30,12 +35,22 @@ def confirm_booking(doctor_id, patient_name, patient_phone, date, time, patient_
 def get_booking_details(booking_id):
     booking = get_booking_by_id(booking_id)
     if booking:
-        return {
-            "booking_id": booking[0],
-            "patient_id": booking[1],
-            "doctor_id": booking[2],
-            "appointment_date": booking[3],
-            "appointment_time": booking[4],
-            "status": booking[5]
-        }
+        if isinstance(booking, dict):
+            return {
+                "booking_id": booking['booking_id'],
+                "patient_id": booking['patient_id'],
+                "doctor_id": booking['doctor_id'],
+                "appointment_date": booking['appointment_date'],
+                "appointment_time": booking['appointment_time'],
+                "status": booking['status']
+            }
+        else:
+            return {
+                "booking_id": booking[0],
+                "patient_id": booking[1],
+                "doctor_id": booking[2],
+                "appointment_date": booking[3],
+                "appointment_time": booking[4],
+                "status": booking[5]
+            }
     return None

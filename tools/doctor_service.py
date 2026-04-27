@@ -5,7 +5,7 @@ def get_specialist_list():
     doctors = get_all_doctors()
     specialities = set()
     for doctor in doctors:
-        specialities.add(doctor[2])  # Assuming specialization is the third column
+        specialities.add(doctor['specialization'])
     return list(specialities)
 
 # choose a doctor based on speciality
@@ -15,12 +15,12 @@ def get_doctors_info(specialization):
     if doctors:
         doc = doctors[0]
         return {
-            "doctors_id": doc[0],
-            "doctor_id": doc[0],
-            "name": doc[1],
-            "specialization": doc[2],
-            "office_hours": doc[3],
-            "email": doc[4] if len(doc) > 4 else None
+            "doctors_id": doc['doctors_id'],
+            "doctor_id": doc['doctors_id'],
+            "name": doc['name'],
+            "specialization": doc['specialization'],
+            "office_hours": doc['office_hours'],
+            "email": doc.get('email')
         }
     return None
 
@@ -28,12 +28,12 @@ def find_doctor_by_id(doctor_id):
     doctor = get_doctor_by_id(doctor_id)
     if doctor:
         return {
-            "doctors_id": doctor[0],
-            "doctor_id": doctor[0],
-            "name": doctor[1],
-            "specialization": doctor[2],
-            "office_hours": doctor[3],
-            "email": doctor[4] if len(doctor) > 4 else None
+            "doctors_id": doctor['doctors_id'],
+            "doctor_id": doctor['doctors_id'],
+            "name": doctor['name'],
+            "specialization": doctor['specialization'],
+            "office_hours": doctor['office_hours'],
+            "email": doctor.get('email')
         }
     return None
 
