@@ -110,11 +110,11 @@ def _tool_update_appointment(booking_id: str, new_date: str, new_time: str) -> s
         return f"Error updating appointment: {e}"
 
 _SYSTEM_PROMPT = (
-    "You are a friendly Rescheduling & Cancellation Assistant for CarePlus Clinic. "
+    "You are a friendly Rescheduling & Cancellation Assistant for KhanPlus Clinic. "
     "Your goal is to help users find their appointments using their phone number, "
     "and then either cancel them or reschedule them to a new date/time. "
-    "1. Always ask for their phone number first if you don't have it. "
-    "2. Use lookup_bookings to find their appointments. The result includes the doctor_id (DocID). "
+    "1. If you DO NOT have the user's phone number, you MUST ask for it in plain text. DO NOT call any tools until they reply with their number. "
+    "2. Once you have the phone number, use lookup_bookings to find their appointments. The result includes the doctor_id (DocID). "
     "3. To cancel, use cancel_appointment. "
     "4. To reschedule, first use get_available_slots (using the doctor_id from step 2) to find times on the new date, "
     "then ask the user to pick one, then use update_appointment. "
@@ -136,13 +136,54 @@ def _run_reschedule_agent(client: Groq, recent_messages: List[Dict[str, Any]]) -
             max_tokens=400,
         )
     except Exception as exc:
+        err_str = str(exc)
+        if "<function=" in err_str:
+            import re
+            match = re.search(r'<function=([a-zA-Z0-9_]+).*?(\{.*?\})', err_str)
+            if match:
+                func_name = match.group(1)
+                try:
+                    args = json.loads(match.group(2))
+                    if func_name == "lookup_bookings":
+                        return _tool_lookup_bookings(args.get("phone", ""))
+                    elif func_name == "cancel_appointment":
+                        return _tool_cancel_appointment(args.get("booking_id", ""))
+                    elif func_name == "get_available_slots":
+                        return _tool_get_available_slots(args.get("doctor_id", ""), args.get("date", ""))
+                    elif func_name == "update_appointment":
+                        return _tool_update_appointment(args.get("booking_id", ""), args.get("new_date", ""), args.get("new_time", ""))
+                except Exception as parse_exc:
+                    print(f"[RescheduleAgent] Regex parse error: {parse_exc}")
+                    
         print(f"[RescheduleAgent] Groq API error: {exc}")
         return "I'm having trouble connecting to the scheduling system right now."
 
     choice = response.choices[0].message
-
+    
     if not choice.tool_calls:
-        return choice.content or "How can I help you with your appointment?"
+        content = choice.content or "How can I help you with your appointment?"
+        if "<function=" in content:
+            import re
+            match = re.search(r'<function=([a-zA-Z0-9_]+).*?(\{.*?\})', content)
+            if match:
+                func_name = match.group(1)
+                try:
+                    args = json.loads(match.group(2))
+                    if func_name == "lookup_bookings":
+                        res = _tool_lookup_bookings(args.get("phone", ""))
+                    elif func_name == "cancel_appointment":
+                        res = _tool_cancel_appointment(args.get("booking_id", ""))
+                    elif func_name == "get_available_slots":
+                        res = _tool_get_available_slots(args.get("doctor_id", ""), args.get("date", ""))
+                    elif func_name == "update_appointment":
+                        res = _tool_update_appointment(args.get("booking_id", ""), args.get("new_date", ""), args.get("new_time", ""))
+                    else:
+                        res = ""
+                    clean_content = re.sub(r'<function=.*?</function>', '', content).strip()
+                    return f"{clean_content}\n\n{res}"
+                except Exception as parse_exc:
+                    print(f"[RescheduleAgent] Text Regex parse error: {parse_exc}")
+        return content
 
     api_messages.append({
         "role": "assistant",
@@ -207,7 +248,13 @@ def reschedule_handler_node(state: dict, *, groq_client: Groq) -> dict:
         if "return" in user_msg.lower() or "main menu" in user_msg.lower():
             return _exit_reschedule(state)
             
-        bot_reply = _run_reschedule_agent(groq_client, state["messages"][-4:])
+        # Hardcode the first response to prevent LLM tool hallucination without a phone number
+        if "manage" in user_msg.lower() and not state.get("reschedule_mode_active"):
+            state["reschedule_mode_active"] = True
+            bot_reply = "To manage your appointments, I'll need to look up your bookings. Could you please provide your phone number?"
+        else:
+            bot_reply = _run_reschedule_agent(groq_client, state["messages"][-4:])
+            
         state["messages"].append({
             "role": "assistant",
             "content": bot_reply,

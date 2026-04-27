@@ -1,5 +1,5 @@
 import json
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 def search_nearest_hospital(location: str) -> str:
     """Uses DuckDuckGo to search for the nearest hospital or emergency room based on location."""

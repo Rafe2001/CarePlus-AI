@@ -77,14 +77,43 @@ def _run_emergency_search(client: Groq, recent_messages: List[Dict[str, Any]]) -
             max_tokens=400,
         )
     except Exception as exc:
+        err_str = str(exc)
+        if "<function=" in err_str:
+            import re
+            match = re.search(r'<function=([a-zA-Z0-9_]+).*?(\{.*?\})', err_str)
+            if match:
+                func_name = match.group(1)
+                try:
+                    args = json.loads(match.group(2))
+                    if func_name == "search_nearest_hospital":
+                        search_results = search_nearest_hospital(args.get("location", ""))
+                        return f"Here is the nearest emergency room information based on your location:\n\n{search_results}"
+                except Exception as parse_exc:
+                    print(f"[EmergencyAgent] Regex parse error: {parse_exc}")
+                    
         print(f"[EmergencyAgent] Groq API error: {exc}")
         return "🚨 Please call 911 or go to the nearest emergency room immediately!"
 
     choice = response.choices[0].message
 
-    # No tool call → return the text directly
+    # No tool call → check if the LLM hallucinated the tool call in plain text
     if not choice.tool_calls:
-        return choice.content or "🚨 Please seek emergency help immediately!"
+        content = choice.content or "🚨 Please seek emergency help immediately!"
+        if "<function=" in content:
+            import re
+            match = re.search(r'<function=([a-zA-Z0-9_]+).*?(\{.*?\})', content)
+            if match:
+                func_name = match.group(1)
+                try:
+                    args = json.loads(match.group(2))
+                    if func_name == "search_nearest_hospital":
+                        search_results = search_nearest_hospital(args.get("location", ""))
+                        # Remove the hallucinated tag from the text and append the results
+                        clean_content = re.sub(r'<function=.*?</function>', '', content).strip()
+                        return f"{clean_content}\n\nHere is the nearest hospital information:\n{search_results}"
+                except Exception as parse_exc:
+                    print(f"[EmergencyAgent] Text Regex parse error: {parse_exc}")
+        return content
 
     # Execute every tool call (usually just one)
     api_messages.append({
